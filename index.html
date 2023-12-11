@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <title>Trying Server Sent Events (SSE)</title>
+    <meta name="description" content="The chart shows the data (random number between 0 and 100) received from server">
+    <style>
+        body {
+            font-family: Arial, Helvetica, sans-serif;
+        }
+
+        p {
+            font-size: 18px;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Trying Server Sent Events (SSE)</h1>
+    <p>Current value: <span id="data-holder">Loading...</span></p>
+
+    <div style="width: 400px;">
+        <canvas id="data-chart" width="400" height="400"></canvas>
+    </div>
+
+    <script>
+        const ctx = document.getElementById('data-chart').getContext("2d")
+        const initialLabels = [...Array(9)].map((_, i) => i + 1)
+
+        let data = {
+            labels: initialLabels,
+            datasets: [{
+                label: "SSE Data",
+                fill: false,
+                borderColor: 'rgb(75, 192, 192)',
+                tension: 0.1,
+                data: [...Array(initialLabels.length)].map(() => Math.random() * 100)
+            }]
+        }
+
+        const options = {
+            animation: false,
+            scaleOverride: true,
+            scaleSteps: 10,
+            scaleStepWidth: 10,
+            scaleStartValue: 0
+        }
+
+        let myLineChart = new Chart(ctx, {
+            type: 'line',
+            data: data,
+            options: options
+        })
+
+        function setData(data, newValue) {
+            data.push(newValue)
+            data.shift()
+        }
+
+        function setLabels(labels) {
+            let lastElement = labels[labels.length - 1]
+            let nextElement = lastElement + 1
+
+            labels.push(nextElement)
+            labels.shift()
+        }
+
+
+        const eventSource = new EventSource('/data-source')
+        eventSource.onerror = (err) => {
+            console.log("onerror", err)
+        }
+
+        eventSource.onmessage = (msg) => {
+            console.log("onmessage", msg)
+        }
+
+        eventSource.onopen = (...args) => {
+            console.log("onopen", args)
+        }
+
+
+        const dataHolder = document.getElementById('data-holder')
+        eventSource.addEventListener("data-update", (event) => {
+            const parsedData = JSON.parse(event.data)
+            const newValue = parsedData.data
+            dataHolder.innerText = newValue
+
+            setData(data.datasets[0].data, newValue)
+            setLabels(data.labels)
+
+            myLineChart.destroy()
+            myLineChart = new Chart(ctx, {
+                type: 'line',
+                data: data,
+                options: options
+            })
+        })
+
+    </script>
+</body>
+
+</html>
